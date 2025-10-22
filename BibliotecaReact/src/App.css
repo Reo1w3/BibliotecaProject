@@ -40,3 +40,53 @@
 .read-the-docs {
   color: #888;
 }
+
+.parent {
+display: grid;
+grid-template-columns: repeat(5, 1fr);
+grid-template-rows: repeat(5, 1fr);
+grid-column-gap: 0px;
+grid-row-gap: 0px;
+}
+
+.div1 { 
+  grid-area: 1 / 1 / 6 / 2; 
+  border-right: solid #c1bfb5 ;
+  height: 100%;
+  padding-right: 100px;
+}
+
+.div1 { grid-area: 1 / 1 / 6 / 2; }
+.divDatos { grid-area: 1 / 2 / 2 / 6; }
+.divClientes { grid-area: 1 / 2 / 2 / 6; }
+.datosClientes { grid-area: 2 / 2 / 6 / 6; }
+.divLibros { grid-area: 1 / 2 / 2 / 6; }
+.datosLibros { grid-area: 2 / 2 / 6 / 6; }
+.divPrestamos { grid-area: 1 / 2 / 2 / 6; }
+.datosPrestamos { grid-area: 2 / 2 / 6 / 6; }
+
+
+html , body {
+  background-color: #170312;
+  color: #a0acad;
+}
+
+
+.button {
+  background-color: #531253;
+  border: none;
+  color: #97d8b2;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
+
+.titulo {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}

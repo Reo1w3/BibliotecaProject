@@ -3,6 +3,7 @@ package com.test.micro.auto.BibliotecaProject.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.test.micro.auto.BibliotecaProject.entity.Libro;
@@ -16,4 +17,18 @@ public class LibroService {
     public List<Libro> verLibros() {
         return libroRepository.findAll();
     }
+
+    public ResponseEntity<Libro> obtenerLibroPorId(Long id) {
+        Libro libro = libroRepository.findById(id).orElse(null);
+        if (libro != null) {
+            return ResponseEntity.ok(libro);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    public List<Libro> guardarLibro(List<Libro> libro) {
+        return libroRepository.saveAll(libro);
+    }
+    
 }
