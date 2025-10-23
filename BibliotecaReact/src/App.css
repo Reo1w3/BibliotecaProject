@@ -53,24 +53,67 @@ grid-row-gap: 0px;
   grid-area: 1 / 1 / 6 / 2; 
   border-right: solid #c1bfb5 ;
   height: 100%;
-  padding-right: 100px;
+  padding-right: 50px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  text-align: center;
+  padding-left: 50px;
+
 }
 
-.div1 { grid-area: 1 / 1 / 6 / 2; }
-.divDatos { grid-area: 1 / 2 / 2 / 6; }
-.divClientes { grid-area: 1 / 2 / 2 / 6; }
-.datosClientes { grid-area: 2 / 2 / 6 / 6; }
-.divLibros { grid-area: 1 / 2 / 2 / 6; }
-.datosLibros { grid-area: 2 / 2 / 6 / 6; }
-.divPrestamos { grid-area: 1 / 2 / 2 / 6; }
-.datosPrestamos { grid-area: 2 / 2 / 6 / 6; }
-
+.divDatos { 
+  grid-area: 1 / 2 / 2 / 6; 
+  border-bottom: solid #c1bfb5 ;
+  padding-bottom: 20px;
+}
+.divClientes { 
+  grid-area: 1 / 2 / 2 / 6; 
+  border-bottom: solid #c1bfb5 ;
+  padding-bottom: 20px;
+}
+.datosClientes { 
+  grid-area: 2 / 2 / 6 / 6; 
+  border: solid #c1bfb5 ;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+.divLibros { 
+  grid-area: 1 / 2 / 2 / 6; 
+  border-bottom: solid #c1bfb5 ;
+  padding-bottom: 20px;
+}
+.datosLibros { 
+  grid-area: 2 / 2 / 6 / 6; 
+  border: solid #c1bfb5 ;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+.divPrestamos { 
+  grid-area: 1 / 2 / 2 / 6; 
+  border-bottom: solid #c1bfb5 ;
+  padding-bottom: 20px;
+}
+.datosPrestamos { 
+  grid-area: 2 / 2 / 6 / 6; 
+  border: solid #c1bfb5 ;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
 
 html , body {
   background-color: #170312;
   color: #a0acad;
 }
 
+.inputBuscar {
+  background-color: #170312;
+  border: solid #c1bfb5;
+  color: #97d8b2;
+  padding: 10px;
+  margin: 0px 0 40px 0;
+  box-sizing: border-box;
+}
 
 .button {
   background-color: #531253;

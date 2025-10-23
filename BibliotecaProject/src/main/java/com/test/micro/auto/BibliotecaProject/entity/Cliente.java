@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
+import java.sql.Date;
 
 @Data
 @Entity
@@ -23,7 +24,7 @@ public class Cliente {
     private String primer_apellido;
     private String segundo_apellido;
     private String genero;
-    private String fecha_nacimiento;
+    private Date fecha_nacimiento;
     private String idioma_materno;
     private String grupo_etnico;
     private String nivel_escolar;

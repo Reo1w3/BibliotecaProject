@@ -23,4 +23,5 @@ public class Prestamo {
     private Date fecha_limite;
     private Date fecha_devolucion;
     private String observaciones;
+    private boolean activo;
 }

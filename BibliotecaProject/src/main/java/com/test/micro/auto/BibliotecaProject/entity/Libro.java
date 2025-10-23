@@ -23,4 +23,5 @@ public class Libro {
     private String isbn;
     private String genero;
     private String descripcion;
+    private boolean disponible;
 }
