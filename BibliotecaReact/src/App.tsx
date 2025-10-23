@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useRef, useEffect, useState, use } from 'react'
 import './App.css'
 
 interface Clientes{
@@ -31,21 +31,30 @@ interface Libros{
   "disponible": boolean
 }
 
-interface Prestamos{
-  "codigo_prestamo": number
-  "codigo_cliente": number
-  "codigo_libro": number
-  "fecha_prestamo": string
-  "fecha_limite": string
-  "fecha_devolucion": string | null
-  "observaciones": string | null
-  "Activo": boolean
+interface Prestamos {
+  codigoPrestamo: number;
+  codigoCliente: number;
+  codigoLibro: number;
+  fechaPrestamo: string;
+  fechaLimite: string;
+  fechaDevolucion: string | null;
+  observaciones: string | null;
+  activo: boolean;
 }
+
 function App() {
+  
+    const historyRef = useRef<string[]>([]);
+    const prevRef = useRef<string>("");
+    
     const [activo, setActivo] = useState("")
     const [cliente, setCliente] = useState<Clientes[]>([])
     const [libro, setLibro] = useState<Libros[]>([])
     const [prestamo, setPrestamo] = useState<Prestamos[]>([])
+
+    const [clienteActivo, setClienteActivo] = useState<boolean>(false);
+    const [libroDisponibleFlag, setLibroDisponibleFlag] = useState<boolean>(true);
+    const [formError, setFormError] = useState<string | null>(null);
 
     const [nuevoCliente, setNuevoCliente] = useState<Clientes>({
       codigo_cliente: 0,
@@ -77,14 +86,14 @@ function App() {
     });
 
     const [nuevoPrestamo, setNuevoPrestamo] = useState<Prestamos>({
-      codigo_prestamo: 0,
-      codigo_cliente: 0,
-      codigo_libro: 0,
-      fecha_prestamo: "",
-      fecha_limite: "",
-      fecha_devolucion: "",
+      codigoPrestamo: 0,
+      codigoCliente: 0,
+      codigoLibro: 0,
+      fechaPrestamo: "",
+      fechaLimite: "",
+      fechaDevolucion: "",
       observaciones: null,
-      Activo: true
+      activo: true
     });
 
     useEffect(()=>{
@@ -112,6 +121,77 @@ function App() {
     []
 
   );
+
+  // valida cliente activo
+useEffect(() => {
+  const clientId = nuevoPrestamo.codigoCliente;
+  if (!clientId || clientId <= 0) {
+    setClienteActivo(false);
+    setFormError(null);
+    return;
+  }
+  const c = cliente.find(cl => cl.codigo_cliente === clientId); // nota: clientes siguen usando codigo_cliente
+  if (c) {
+    setClienteActivo(!!c.estado);
+    if (c.estado) {
+      const fullName = `${c.nombres || ''} ${c.primer_apellido || ''}`.trim();
+      setFormError(fullName
+        ? `El cliente ${fullName} (ID ${c.codigo_cliente}) ya tiene un préstamo activo. Finaliza ese préstamo antes de crear uno nuevo.`
+        : `El cliente seleccionado (ID ${c.codigo_cliente}) ya tiene un préstamo activo. Finaliza ese préstamo antes de crear uno nuevo.`);
+    } else {
+      setFormError(null);
+    }
+  } else {
+    setClienteActivo(false);
+    setFormError(null);
+  }
+}, [nuevoPrestamo.codigoCliente, cliente]);
+
+// valida libro disponible
+useEffect(() => {
+  const bookId = nuevoPrestamo.codigoLibro;
+  if (!bookId || bookId <= 0) {
+    setLibroDisponibleFlag(true);
+    return;
+  }
+  const b = libro.find(lb => lb.codigo_libro === bookId); // libros siguen usando codigo_libro
+  if (b) {
+    setLibroDisponibleFlag(!!b.disponible);
+    if (!b.disponible) {
+      setFormError(`El libro "${b.titulo || 'sin título'}" (ID ${b.codigo_libro}) no está disponible actualmente. Elige otro libro o espera a que se devuelva.`);
+    } else {
+      setFormError(prev => {
+        if (prev && prev.toLowerCase().includes('cliente')) return prev;
+        return null;
+      });
+    }
+  } else {
+    setLibroDisponibleFlag(true);
+  }
+}, [nuevoPrestamo.codigoLibro, libro]);
+
+
+useEffect(() => {
+  const bookId = nuevoPrestamo.codigoLibro;
+  if (!bookId || bookId <= 0) {
+    setLibroDisponibleFlag(true);
+    return;
+  }
+  const b = libro.find(lb => lb.codigo_libro === bookId); // libros siguen usando codigo_libro
+  if (b) {
+    setLibroDisponibleFlag(!!b.disponible);
+    if (!b.disponible) {
+      setFormError(`El libro "${b.titulo || 'sin título'}" (ID ${b.codigo_libro}) no está disponible actualmente. Elige otro libro o espera a que se devuelva.`);
+    } else {
+      setFormError(prev => {
+        if (prev && prev.toLowerCase().includes('cliente')) return prev;
+        return null;
+      });
+    }
+  } else {
+    setLibroDisponibleFlag(true);
+  }
+}, [nuevoPrestamo.codigoLibro, libro]);
 
   // ...existing code...
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,33 +311,63 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         alert("Error al agregar libro: " + error.message);
       });
   } else if (activo === "setPrestamos") {
-    const payload = [stripId(nuevoPrestamo, "codigo_prestamo")];
-    fetch('http://localhost:8080/api/biblioteca/prestamos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(handleResponse)
-      .then(() => fetch('http://localhost:8080/api/biblioteca/prestamos'))
-      .then(res => res.json())
-      .then(list => {
-        setPrestamo(list);
-        setNuevoPrestamo({
-          codigo_prestamo: 0,
-          codigo_cliente: 0,
-          codigo_libro: 0,
-          fecha_prestamo: "",
-          fecha_limite: "",
-          fecha_devolucion: "",
-          observaciones: null,
-          Activo: true
-        });
-        setActivo("getPrestamos");
-      })
-      .catch(error => {
-        console.error("Error al agregar préstamo:", error);
-        alert("Error al agregar préstamo: " + error.message);
+  const payloadObj = { ...nuevoPrestamo };
+  // eliminar id autogenerado antes de enviar
+  if ('codigoPrestamo' in payloadObj) delete (payloadObj as any).codigoPrestamo;
+
+  // Validaciones en frontend
+  if (nuevoPrestamo.codigoCliente <= 0) {
+    alert("Seleccione/ingrese un Código de Cliente válido.");
+    return;
+  }
+  if (nuevoPrestamo.codigoLibro <= 0) {
+    alert("Seleccione/ingrese un Código de Libro válido.");
+    return;
+  }
+  if (clienteActivo) {
+    alert(formError || "El cliente seleccionado ya tiene un préstamo activo.");
+    return;
+  }
+  if (!libroDisponibleFlag) {
+    alert(formError || "El libro seleccionado no está disponible.");
+    return;
+  }
+
+  fetch('http://localhost:8080/api/biblioteca/prestamos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify([payloadObj]) // backend espera List<Prestamo>
+  })
+    .then(handleResponse)
+    .then(() => Promise.all([
+      fetch('http://localhost:8080/api/biblioteca/prestamos').then(r => r.json()),
+      fetch('http://localhost:8080/api/biblioteca/clientes').then(r => r.json()),
+      fetch('http://localhost:8080/api/biblioteca/libros').then(r => r.json())
+    ]))
+    .then(([prestamosList, clientesList, librosList]) => {
+      // Es posible que ahora prestamosList use propiedades camelCase; actualiza el estado directamente
+      setPrestamo(prestamosList);
+      setCliente(clientesList);
+      setLibro(librosList);
+
+      // limpiar formulario (camelCase)
+      setNuevoPrestamo({
+        codigoPrestamo: 0,
+        codigoCliente: 0,
+        codigoLibro: 0,
+        fechaPrestamo: "",
+        fechaLimite: "",
+        fechaDevolucion: "",
+        observaciones: null,
+        activo: true
       });
+      setActivo("getPrestamos");
+      setFormError(null);
+    })
+    .catch((error) => {
+      console.error("Error al agregar préstamo:", error);
+      alert("Error al agregar préstamo: " + (error?.message || error));
+    });
   }
 };
 // ...existing code...
@@ -539,16 +649,15 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
             }} />
 
           {prestamo.map((p: Prestamos) => (
-            <div key={p.codigo_prestamo} className='datosPrestamos'>
-              
-              <h2>Préstamo #{p.codigo_prestamo}</h2>
-              <p>Cliente: {p.codigo_cliente}</p>
-              <p>Libro: {p.codigo_libro}</p>
-              <p>Fecha de Préstamo: {p.fecha_prestamo.toString()}</p>
-              <p>Fecha Límite: {p.fecha_limite.toString()}</p>
-              <p>Fecha de Devolución: {p.fecha_devolucion ? p.fecha_devolucion.toString() : 'No devuelto'}</p>
+            <div key={p.codigoPrestamo} className='datosPrestamos'>
+              <h2>Préstamo #{p.codigoPrestamo}</h2>
+              <p>Cliente: {p.codigoCliente}</p>
+              <p>Libro: {p.codigoLibro}</p>
+              <p>Fecha de Préstamo: {p.fechaPrestamo?.toString()}</p>
+              <p>Fecha Límite: {p.fechaLimite?.toString()}</p>
+              <p>Fecha de Devolución: {p.fechaDevolucion ? p.fechaDevolucion.toString() : 'No devuelto'}</p>
               <p>Observaciones: {p.observaciones || 'Ninguna'}</p>
-              <p>Activo: {p.Activo ? "Préstamo en Curso" : "Préstamo Finalizado"}</p>
+              <p>Activo: {p.activo ? "Préstamo en Curso" : "Préstamo Finalizado"}</p>
             </div>
           ))}
         </div>
@@ -560,23 +669,23 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
           <form onSubmit={handleFormSubmit}>
             <div>
               <label>Código Cliente:</label>
-              <input type="number" name="codigo_cliente" value={nuevoPrestamo.codigo_cliente} onChange={handleChange} />
+              <input type="number" name="codigoCliente" value={nuevoPrestamo.codigoCliente} onChange={handleChange} />
             </div>
             <div>
               <label>Código Libro:</label>
-              <input type="number" name="codigo_libro" value={nuevoPrestamo.codigo_libro} onChange={handleChange} />
+              <input type="number" name="codigoLibro" value={nuevoPrestamo.codigoLibro} onChange={handleChange} />
             </div>
             <div>
               <label>Fecha de Préstamo:</label>
-              <input type="date" name="fecha_prestamo" value={nuevoPrestamo.fecha_prestamo} onChange={handleChange} />
+              <input type="date" name="fechaPrestamo" value={nuevoPrestamo.fechaPrestamo} onChange={handleChange} />
             </div>
             <div>
               <label>Fecha Límite:</label>
-              <input type="date" name="fecha_limite" value={nuevoPrestamo.fecha_limite} onChange={handleChange} />
+              <input type="date" name="fechaLimite" value={nuevoPrestamo.fechaLimite} onChange={handleChange} />
             </div>
             <div>
               <label>Fecha de Devolución:</label>
-              <input type="date" name="fecha_devolucion" value={nuevoPrestamo.fecha_devolucion ? nuevoPrestamo.fecha_devolucion : ""} onChange={handleChange} />
+              <input type="date" name="fechaDevolucion" value={nuevoPrestamo.fechaDevolucion ? nuevoPrestamo.fechaDevolucion : ""} onChange={handleChange} />
             </div>
             <div>
               <label>Observaciones:</label>
@@ -584,12 +693,15 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
             </div>
             <div>
               <label>Activo:</label>
-              <input type="checkbox" name="Activo" checked={nuevoPrestamo.Activo} onChange={(e) => setNuevoPrestamo((prevState) => ({
-                ...prevState,
-                Activo: e.target.checked
-              }))} />
+              <input type="checkbox" name="activo" checked={nuevoPrestamo.activo} onChange={(e) => setNuevoPrestamo((prev) => ({ ...prev, activo: e.target.checked }))} />
             </div>
-            <button type="submit" className='button'>Agregar Préstamo</button>
+
+            {formError && <p style={{ color: 'red' }}>{formError}</p>}
+            {!libroDisponibleFlag && <p style={{ color: 'red' }}>El libro seleccionado no está disponible.</p>}
+
+            <button type="submit" className='button' disabled={clienteActivo || !libroDisponibleFlag}>
+              Agregar Préstamo
+            </button>
           </form>
         </div>
         )}

@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+
 
 
 @CrossOrigin(origins = "http://localhost:5173")
@@ -36,9 +38,26 @@ public class PrestamoController implements Serializable{
     }
 
     @PostMapping()
-    public List<Prestamo> guardarPrestamo(@RequestBody List<Prestamo> prestamo) {
-        return prestamoService.guardarPrestamo(prestamo);
+    public ResponseEntity<?> guardarPrestamo(@RequestBody List<Prestamo> prestamo) {
+        try {
+            List<Prestamo> saved = prestamoService.guardarPrestamo(prestamo);
+            return ResponseEntity.ok(saved);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
+        }
     }
-    
-    
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarPrestamo(@PathVariable Long id, @RequestBody Prestamo prestamo) {
+        try {
+            Prestamo updated = prestamoService.actualizarPrestamo(id, prestamo);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
+        }
+    }
 }
