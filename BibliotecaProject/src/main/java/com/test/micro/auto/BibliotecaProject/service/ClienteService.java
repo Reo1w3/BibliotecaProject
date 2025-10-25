@@ -27,6 +27,23 @@ public class ClienteService {
         }
     }
 
+    public ResponseEntity<Cliente> actualizarCliente(Long id, Cliente clienteActualizado) {
+        return clienteRepository.findById(id)
+                .map(cliente -> {
+                    cliente.setNombres(clienteActualizado.getNombres());
+                    cliente.setPrimer_apellido(clienteActualizado.getPrimer_apellido());
+                    cliente.setSegundo_apellido(clienteActualizado.getSegundo_apellido());
+                    cliente.setTelefono(clienteActualizado.getTelefono());
+                    cliente.setDepartamento_residencia(clienteActualizado.getDepartamento_residencia());
+                    cliente.setMunicipio_residencia(clienteActualizado.getMunicipio_residencia());
+                    cliente.setNivel_escolar(clienteActualizado.getNivel_escolar());
+                    cliente.setEmail(clienteActualizado.getEmail());
+                    Cliente updatedCliente = clienteRepository.save(cliente);
+                    return ResponseEntity.ok(updatedCliente);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     public List<Cliente> guardarCliente(List<Cliente> cliente) {
         return clienteRepository.saveAll(cliente);
     }

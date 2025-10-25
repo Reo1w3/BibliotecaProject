@@ -83,7 +83,6 @@ public class PrestamoService {
                 if (maybeLibro.isEmpty()) {
                     throw new IllegalStateException("Libro con id " + p.getCodigoLibro() + " no existe.");
                 }
-                Libro libro = maybeLibro.get();
                 // comprobar si hay préstamos activos que bloqueen el libro
                 boolean bookHasActive = prestamoRepository.existsByCodigoLibroAndActivo(p.getCodigoLibro(), true);
                 if (bookHasActive) {
@@ -123,8 +122,6 @@ public class PrestamoService {
 
         // Guardar estado anterior para detectar cambios
         boolean wasActive = existing.isActivo();
-        int oldClienteId = existing.getCodigoCliente();
-        int oldLibroId = existing.getCodigoLibro();
 
         // Aplicar cambios
         existing.setCodigoCliente(updated.getCodigoCliente());

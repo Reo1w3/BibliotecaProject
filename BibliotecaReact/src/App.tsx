@@ -1,34 +1,34 @@
-import { useRef, useEffect, useState, use } from 'react'
+import React, { useEffect, useState } from 'react'
 import './App.css'
 
 interface Clientes{
-  "codigo_cliente": number
-  "dpi": string
-  "nombres": string
-  "primer_apellido": string
-  "segundo_apellido": string
-  "genero": string
-  "fecha_nacimiento": string
-  "idioma_materno": string
-  "grupo_etnico": string
-  "nivel_escolar": string
-  "telefono": string
-  "email": string
-  "departamento_residencia": string
-  "municipio_residencia": string
-  "estado": boolean
+  codigo_cliente: number
+  dpi: string
+  nombres: string
+  primer_apellido: string
+  segundo_apellido: string
+  genero: string
+  fecha_nacimiento: string
+  idioma_materno: string
+  grupo_etnico: string
+  nivel_escolar: string
+  telefono: string
+  email: string
+  departamento_residencia: string
+  municipio_residencia: string
+  estado: boolean
 }
 
 interface Libros{
-  "codigo_libro": number
-  "titulo": string
-  "autor": string
-  "editorial": string
-  "fecha_publicacion": string
-  "isbn": string
-  "genero": string
-  "descripcion": string
-  "disponible": boolean
+  codigo_libro: number
+  titulo: string
+  autor: string
+  editorial: string
+  fecha_publicacion: string
+  isbn: string
+  genero: string
+  descripcion: string
+  disponible: boolean
 }
 
 interface Prestamos {
@@ -42,12 +42,11 @@ interface Prestamos {
   activo: boolean;
 }
 
+const API = '/api/biblioteca';
+
 function App() {
-  
-    const historyRef = useRef<string[]>([]);
-    const prevRef = useRef<string>("");
     
-    const [activo, setActivo] = useState("")
+    const [activo, setActivo] = useState<string>("") // controla vistas
     const [cliente, setCliente] = useState<Clientes[]>([])
     const [libro, setLibro] = useState<Libros[]>([])
     const [prestamo, setPrestamo] = useState<Prestamos[]>([])
@@ -96,143 +95,118 @@ function App() {
       activo: true
     });
 
-    useEffect(()=>{
-      fetch('http://localhost:8080/api/biblioteca/clientes')
-      .then(response => response.json())
-      .then(data => setCliente(data))
-      .catch(error =>{
+    // Carga inicial y función de refresco
+    const fetchAll = async () => {
+      try {
+        const [clientesRes, librosRes, prestamosRes] = await Promise.all([
+          fetch(`${API}/clientes`),
+          fetch(`${API}/libros`),
+          fetch(`${API}/prestamos`)
+        ]);
+        const [clientesData, librosData, prestamosData] = await Promise.all([
+          clientesRes.json(),
+          librosRes.json(),
+          prestamosRes.json()
+        ]);
+        setCliente(clientesData || []);
+        setLibro(librosData || []);
+        setPrestamo(prestamosData || []);
+      } catch (error) {
         console.error("No se ha podido obtener data", error);
-      })
+      }
+    };
 
-      fetch('http://localhost:8080/api/biblioteca/libros')
-      .then(response => response.json())
-      .then(data => setLibro(data))
-      .catch(error =>{
-        console.error("No se ha podido obtener data", error);
-      })
+    useEffect(() => {
+      fetchAll();
+    }, []);
 
-      fetch('http://localhost:8080/api/biblioteca/prestamos')
-      .then(response => response.json())
-      .then(data => setPrestamo(data))
-      .catch(error =>{
-        console.error("No se ha podido obtener data", error);
-      })
-    },
-    []
-
-  );
-
-  // valida cliente activo
-useEffect(() => {
-  const clientId = nuevoPrestamo.codigoCliente;
-  if (!clientId || clientId <= 0) {
-    setClienteActivo(false);
-    setFormError(null);
-    return;
-  }
-  const c = cliente.find(cl => cl.codigo_cliente === clientId); // nota: clientes siguen usando codigo_cliente
-  if (c) {
-    setClienteActivo(!!c.estado);
-    if (c.estado) {
-      const fullName = `${c.nombres || ''} ${c.primer_apellido || ''}`.trim();
-      setFormError(fullName
-        ? `El cliente ${fullName} (ID ${c.codigo_cliente}) ya tiene un préstamo activo. Finaliza ese préstamo antes de crear uno nuevo.`
-        : `El cliente seleccionado (ID ${c.codigo_cliente}) ya tiene un préstamo activo. Finaliza ese préstamo antes de crear uno nuevo.`);
+  // Observa cliente seleccionado para nuevo prestamo
+  useEffect(() => {
+    const clientId = nuevoPrestamo.codigoCliente;
+    if (!clientId || clientId <= 0) {
+      setClienteActivo(false);
+      setFormError(null);
+      return;
+    }
+    const c = cliente.find(cl => cl.codigo_cliente === clientId);
+    if (c) {
+      setClienteActivo(!!c.estado);
+      if (c.estado) {
+        const fullName = `${c.nombres || ''} ${c.primer_apellido || ''}`.trim();
+        setFormError(fullName
+          ? `El cliente ${fullName} (ID ${c.codigo_cliente}) ya tiene un préstamo activo. Finaliza ese préstamo antes de crear uno nuevo.`
+          : `El cliente seleccionado (ID ${c.codigo_cliente}) ya tiene un préstamo activo. Finaliza ese préstamo antes de crear uno nuevo.`);
+      } else {
+        setFormError(null);
+      }
     } else {
+      setClienteActivo(false);
       setFormError(null);
     }
-  } else {
-    setClienteActivo(false);
-    setFormError(null);
-  }
-}, [nuevoPrestamo.codigoCliente, cliente]);
+  }, [nuevoPrestamo.codigoCliente, cliente]);
 
-// valida libro disponible
-useEffect(() => {
-  const bookId = nuevoPrestamo.codigoLibro;
-  if (!bookId || bookId <= 0) {
-    setLibroDisponibleFlag(true);
-    return;
-  }
-  const b = libro.find(lb => lb.codigo_libro === bookId); // libros siguen usando codigo_libro
-  if (b) {
-    setLibroDisponibleFlag(!!b.disponible);
-    if (!b.disponible) {
-      setFormError(`El libro "${b.titulo || 'sin título'}" (ID ${b.codigo_libro}) no está disponible actualmente. Elige otro libro o espera a que se devuelva.`);
-    } else {
-      setFormError(prev => {
-        if (prev && prev.toLowerCase().includes('cliente')) return prev;
-        return null;
-      });
+  // Observa libro seleccionado para nuevo prestamo
+  useEffect(() => {
+    const bookId = nuevoPrestamo.codigoLibro;
+    if (!bookId || bookId <= 0) {
+      setLibroDisponibleFlag(true);
+      return;
     }
-  } else {
-    setLibroDisponibleFlag(true);
-  }
-}, [nuevoPrestamo.codigoLibro, libro]);
-
-
-useEffect(() => {
-  const bookId = nuevoPrestamo.codigoLibro;
-  if (!bookId || bookId <= 0) {
-    setLibroDisponibleFlag(true);
-    return;
-  }
-  const b = libro.find(lb => lb.codigo_libro === bookId); // libros siguen usando codigo_libro
-  if (b) {
-    setLibroDisponibleFlag(!!b.disponible);
-    if (!b.disponible) {
-      setFormError(`El libro "${b.titulo || 'sin título'}" (ID ${b.codigo_libro}) no está disponible actualmente. Elige otro libro o espera a que se devuelva.`);
+    const b = libro.find(lb => lb.codigo_libro === bookId);
+    if (b) {
+      setLibroDisponibleFlag(!!b.disponible);
+      if (!b.disponible) {
+        setFormError(`El libro "${b.titulo || 'sin título'}" (ID ${b.codigo_libro}) no está disponible actualmente. Elige otro libro o espera a que se devuelva.`);
+      } else {
+        setFormError(prev => {
+          if (prev && prev.toLowerCase().includes('cliente')) return prev;
+          return null;
+        });
+      }
     } else {
-      setFormError(prev => {
-        if (prev && prev.toLowerCase().includes('cliente')) return prev;
-        return null;
-      });
+      setLibroDisponibleFlag(true);
     }
-  } else {
-    setLibroDisponibleFlag(true);
-  }
-}, [nuevoPrestamo.codigoLibro, libro]);
+  }, [nuevoPrestamo.codigoLibro, libro]);
 
-  // ...existing code...
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    // Normalizar valor según tipo de input
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const target = e.target as HTMLInputElement;
+    const { name, value, type, checked } = target;
     const parsedValue: any = type === 'checkbox' ? checked : (type === 'number' ? (value === '' ? '' : Number(value)) : value);
 
-    // Fíjate: comparamos con "setClientes", "setLibros", "setPrestamos"
-    if (activo === "setClientes") {
+    if (activo === "setClientes" || activo === "editClientes") {
       setNuevoCliente((prevState) => ({
         ...(prevState as any),
         [name]: parsedValue
       }));
-    } else if (activo === "setLibros") {
+    } else if (activo === "setLibros" || activo === "editLibros") {
       setNuevoLibro((prevState) => ({
         ...(prevState as any),
         [name]: parsedValue
       }));
-    } else if (activo === "setPrestamos") {
+    } else if (activo === "setPrestamos" || activo === "editPrestamos") {
       setNuevoPrestamo((prevState) => ({
         ...(prevState as any),
         [name]: parsedValue
       }));
     }
   };
-// ...existing code...
 
-  // ...existing code...
-const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
-
-  // Helper para procesar respuestas
   const handleResponse = async (response: Response) => {
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       throw new Error(text || `Server responded with ${response.status}`);
     }
-    return response.json();
+    // intentar parsear JSON solo si hay body
+    const text = await response.text().catch(() => '');
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
   };
 
-  // Helper: eliminar campos id autogenerados antes de enviar
   const stripId = (obj: any, idField: string) => {
     const copy: any = { ...obj };
     if (idField in copy) {
@@ -241,116 +215,206 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     return copy;
   };
 
-  if (activo === "setClientes") {
-    const payload = [stripId(nuevoCliente, "codigo_cliente")];
-    fetch('http://localhost:8080/api/biblioteca/clientes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(handleResponse)
-      .then((data) => {
-        console.log("Cliente agregado:", data);
-        // refrescar la lista de clientes
-        return fetch('http://localhost:8080/api/biblioteca/clientes');
+  // Crear (POST) manejador existente
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (activo === "setClientes") {
+      const payload = [stripId(nuevoCliente, "codigo_cliente")];
+      fetch(`${API}/clientes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       })
-      .then(res => res.json())
-      .then(list => {
-        setCliente(list);
-        // limpiar formulario
-        setNuevoCliente({
-          codigo_cliente: 0,
-          dpi: "",
-          nombres: "",
-          primer_apellido: "",
-          segundo_apellido: "",
-          genero: "",
-          fecha_nacimiento: "",
-          idioma_materno: "",
-          grupo_etnico: "",
-          nivel_escolar: "",
-          telefono: "",
-          email: "",
-          departamento_residencia: "",
-          municipio_residencia: "",
-          estado: false
+        .then(handleResponse)
+        .then(() => fetchAll())
+        .then(() => {
+          // limpiar formulario
+          setNuevoCliente({
+            codigo_cliente: 0,
+            dpi: "",
+            nombres: "",
+            primer_apellido: "",
+            segundo_apellido: "",
+            genero: "",
+            fecha_nacimiento: "",
+            idioma_materno: "",
+            grupo_etnico: "",
+            nivel_escolar: "",
+            telefono: "",
+            email: "",
+            departamento_residencia: "",
+            municipio_residencia: "",
+            estado: false
+          });
+          setActivo("getClientes");
+        })
+        .catch(error => {
+          console.error("Error al agregar cliente:", error);
+          alert("Error al agregar cliente: " + (error as Error).message);
         });
-        setActivo("getClientes");
+    } else if (activo === "setLibros") {
+      const payload = [stripId(nuevoLibro, "codigo_libro")];
+      fetch(`${API}/libros`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       })
-      .catch(error => {
-        console.error("Error al agregar cliente:", error);
-        alert("Error al agregar cliente: " + error.message);
-      });
-  } else if (activo === "setLibros") {
-    const payload = [stripId(nuevoLibro, "codigo_libro")];
-    fetch('http://localhost:8080/api/biblioteca/libros', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(handleResponse)
-      .then(() => fetch('http://localhost:8080/api/biblioteca/libros'))
-      .then(res => res.json())
-      .then(list => {
-        setLibro(list);
-        setNuevoLibro({
-          codigo_libro: 0,
-          titulo: "",
-          autor: "",
-          editorial: "",
-          fecha_publicacion: "",
-          isbn: "",
-          genero: "",
-          descripcion: "",
-          disponible: true
+        .then(handleResponse)
+        .then(() => fetchAll())
+        .then(() => {
+          setNuevoLibro({
+            codigo_libro: 0,
+            titulo: "",
+            autor: "",
+            editorial: "",
+            fecha_publicacion: "",
+            isbn: "",
+            genero: "",
+            descripcion: "",
+            disponible: true
+          });
+          setActivo("getLibros");
+        })
+        .catch(error => {
+          console.error("Error al agregar libro:", error);
+          alert("Error al agregar libro: " + (error as Error).message);
         });
-        setActivo("getLibros");
+    } else if (activo === "setPrestamos") {
+      const payloadObj = { ...nuevoPrestamo };
+      if ('codigoPrestamo' in payloadObj) delete (payloadObj as any).codigoPrestamo;
+
+      if (nuevoPrestamo.codigoCliente <= 0) {
+        alert("Seleccione/ingrese un Código de Cliente válido.");
+        return;
+      }
+      if (nuevoPrestamo.codigoLibro <= 0) {
+        alert("Seleccione/ingrese un Código de Libro válido.");
+        return;
+      }
+      if (clienteActivo) {
+        alert(formError || "El cliente seleccionado ya tiene un préstamo activo.");
+        return;
+      }
+      if (!libroDisponibleFlag) {
+        alert(formError || "El libro seleccionado no está disponible.");
+        return;
+      }
+
+      fetch(`${API}/prestamos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([payloadObj]) // backend espera List<Prestamo> en POST
       })
-      .catch(error => {
-        console.error("Error al agregar libro:", error);
-        alert("Error al agregar libro: " + error.message);
+        .then(handleResponse)
+        .then(() => fetchAll())
+        .then(() => {
+          setNuevoPrestamo({
+            codigoPrestamo: 0,
+            codigoCliente: 0,
+            codigoLibro: 0,
+            fechaPrestamo: "",
+            fechaLimite: "",
+            fechaDevolucion: "",
+            observaciones: null,
+            activo: true
+          });
+          setActivo("getPrestamos");
+          setFormError(null);
+        })
+        .catch((error) => {
+          console.error("Error al agregar préstamo:", error);
+          alert("Error al agregar préstamo: " + (error as Error).message);
+        });
+    }
+  };
+
+  // --- FUNCIONES DE EDICIÓN ---
+
+  // Clientes (iniciar y enviar)
+  const startEditCliente = (c: Clientes) => {
+    setNuevoCliente({ ...c });
+    setActivo("editClientes");
+  };
+
+  const submitEditCliente = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      // PUT por id (tu backend espera /{id})
+      const res = await fetch(`${API}/clientes/${nuevoCliente.codigo_cliente}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevoCliente)
       });
-  } else if (activo === "setPrestamos") {
-  const payloadObj = { ...nuevoPrestamo };
-  // eliminar id autogenerado antes de enviar
-  if ('codigoPrestamo' in payloadObj) delete (payloadObj as any).codigoPrestamo;
+      await handleResponse(res);
+      await fetchAll();
+      setActivo("getClientes");
+      setFormError(null);
+    } catch (error: any) {
+      console.error("Error al editar cliente:", error);
+      alert("Error al editar cliente: " + (error?.message || error));
+    }
+  };
 
-  // Validaciones en frontend
-  if (nuevoPrestamo.codigoCliente <= 0) {
-    alert("Seleccione/ingrese un Código de Cliente válido.");
-    return;
-  }
-  if (nuevoPrestamo.codigoLibro <= 0) {
-    alert("Seleccione/ingrese un Código de Libro válido.");
-    return;
-  }
-  if (clienteActivo) {
-    alert(formError || "El cliente seleccionado ya tiene un préstamo activo.");
-    return;
-  }
-  if (!libroDisponibleFlag) {
-    alert(formError || "El libro seleccionado no está disponible.");
-    return;
-  }
+  // Libros: iniciar edición y enviar
+  const startEditLibro = (l: Libros) => {
+    setNuevoLibro({ ...l });
+    setActivo("editLibros");
+  };
 
-  fetch('http://localhost:8080/api/biblioteca/prestamos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify([payloadObj]) // backend espera List<Prestamo>
-  })
-    .then(handleResponse)
-    .then(() => Promise.all([
-      fetch('http://localhost:8080/api/biblioteca/prestamos').then(r => r.json()),
-      fetch('http://localhost:8080/api/biblioteca/clientes').then(r => r.json()),
-      fetch('http://localhost:8080/api/biblioteca/libros').then(r => r.json())
-    ]))
-    .then(([prestamosList, clientesList, librosList]) => {
-      // Es posible que ahora prestamosList use propiedades camelCase; actualiza el estado directamente
-      setPrestamo(prestamosList);
-      setCliente(clientesList);
-      setLibro(librosList);
+  const submitEditLibro = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API}/libros/${nuevoLibro.codigo_libro}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevoLibro)
+      });
+      await handleResponse(res);
+      await fetchAll();
+      setActivo("getLibros");
+      setFormError(null);
+    } catch (error: any) {
+      console.error("Error al editar libro:", error);
+      alert("Error al editar libro: " + (error?.message || error));
+    }
+  };
 
-      // limpiar formulario (camelCase)
+  // Préstamos: iniciar edición (solo activos)
+  const startEditPrestamo = (p: Prestamos) => {
+    if (!p.activo) {
+      alert("Solo se pueden editar préstamos activos.");
+      return;
+    }
+    setNuevoPrestamo({ ...p });
+    setActivo("editPrestamos");
+  };
+
+  // Enviar edición de préstamo; si finalizar=true, marcamos activo=false y ponemos fechaDevolucion si falta
+  const submitEditPrestamo = async (e: React.FormEvent<HTMLFormElement> | any, finalizar = false) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    try {
+      const payloadObj: any = { ...nuevoPrestamo };
+      if (finalizar) {
+        payloadObj.activo = false;
+        if (!payloadObj.fechaDevolucion) {
+          const hoy = new Date();
+          payloadObj.fechaDevolucion = hoy.toISOString().slice(0,10); // yyyy-mm-dd
+        }
+      }
+
+      const res = await fetch(`${API}/prestamos/${nuevoPrestamo.codigoPrestamo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadObj)
+      });
+      await handleResponse(res);
+
+      // refrescar listas (clientes y libros se actualizarán según backend)
+      await fetchAll();
+
+      setActivo("getPrestamos");
+      setFormError(null);
       setNuevoPrestamo({
         codigoPrestamo: 0,
         codigoCliente: 0,
@@ -361,72 +425,55 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         observaciones: null,
         activo: true
       });
-      setActivo("getPrestamos");
-      setFormError(null);
-    })
-    .catch((error) => {
-      console.error("Error al agregar préstamo:", error);
-      alert("Error al agregar préstamo: " + (error?.message || error));
-    });
-  }
-};
-// ...existing code...
+    } catch (error: any) {
+      console.error("Error al editar préstamo:", error);
+      alert("Error al editar préstamo: " + (error?.message || error));
+    }
+  };
 
+  // Vista principal render
   return (
     <>
       <div className="parent">
         <div className="div1"> 
           <h1 className='titulo'>Biblioteca</h1>
-          <button className="button" onClick={() => setActivo("Clientes")}>Clientes</button> <br></br>
-          <button className="button" onClick={() => setActivo("Libros")}>Libros</button> <br></br>
-          <button className="button" onClick={() => setActivo("Prestamos")}>Préstamos</button> <br></br>
+          <div className="menu">
+            <button className="buttonmenu" onClick={() => setActivo("Clientes")}>Clientes</button> <br />
+            <button className="buttonmenu" onClick={() => setActivo("Libros")}>Libros</button> <br />
+            <button className="buttonmenu" onClick={() => setActivo("Prestamos")}>Préstamos</button> <br />
+          </div>
         </div>
 
         {activo === "" && (
           <div className="divDatos">
             <h1>Bienvenido a la Biblioteca</h1>
             <p>Seleccione una opción del menú para comenzar.</p>
-            
           </div>
         )}
 
         {activo === "Clientes" && (
           <div className={"divClientes"}>
-          <h1>Clientes</h1>
-          <button className='button'onClick={() => setActivo("setClientes")}>Agregar</button>
-          <button className='button'onClick={() => setActivo("getClientes")}>Ver</button>
-          
-        </div>
+            <h1>Clientes</h1>
+            <button className='button' onClick={() => setActivo("setClientes")}>Agregar</button>
+            <button className='button' onClick={() => setActivo("getClientes")}>Ver</button>
+          </div>
         )}
 
         {activo === "getClientes" &&  (
           <div className={"divClientes"}>
-          
             <h1>Mostrar Clientes</h1>
-            
             <input type="number" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
               const searchTerm = e.target.value;
               if (searchTerm === "" || searchTerm <= "0") {
-                // Si el término de búsqueda está vacío, obtener todos los clientes
-                fetch('http://localhost:8080/api/biblioteca/clientes')
-              .then(response => response.json())
-              .then(data => setCliente(data))
-              .catch(error =>{
-                console.error("No se ha podido obtener data", error);
-              });
-
-              
-
+                fetch(`${API}/clientes`)
+                  .then(response => response.json())
+                  .then(data => setCliente(data))
+                  .catch(error => console.error("No se ha podido obtener data", error));
               } else {
-                // Filtrar los clientes por el término de búsqueda
-                fetch(`http://localhost:8080/api/biblioteca/clientes/${searchTerm}`)
-              .then(response => response.json())
-              .then(data => setCliente([data])) // Envolver el resultado en un array
-              .catch(error =>{
-                console.error("No se ha podido obtener data", error);
-              });
-              
-             
+                fetch(`${API}/clientes/${searchTerm}`)
+                  .then(response => response.json())
+                  .then(data => setCliente([data]))
+                  .catch(error => console.error("No se ha podido obtener data", error));
               }
             }} />
 
@@ -446,264 +493,387 @@ const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
                 <p>Departamento de Residencia: {c.departamento_residencia}</p>
                 <p>Municipio de Residencia: {c.municipio_residencia}</p>
                 <p>Estado: {c.estado ? "Préstamo Activo" : "Préstamo Inactivo"}</p>
+                <button className='button' onClick={() => startEditCliente(c)}>Editar</button>
               </div>
             ))}
-        </div>
+          </div>
         )}
 
         {activo === "setClientes" && (
           <div className={"divClientes"}>
-          <h1>Agregar Cliente</h1>
-          <form onSubmit={handleFormSubmit}>
-            <div>
-              <label>DPI:</label>
-              <input type="text" name="dpi" value={nuevoCliente.dpi} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Nombres:</label>
-              <input type="text" name="nombres" value={nuevoCliente.nombres} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Primer Apellido:</label>
-              <input type="text" name="primer_apellido" value={nuevoCliente.primer_apellido} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Segundo Apellido:</label>
-              <input type="text" name="segundo_apellido" value={nuevoCliente.segundo_apellido} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Género:</label>
-              <input type="text" name="genero" value={nuevoCliente.genero} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Fecha de Nacimiento:</label>
-              <input type="date" name="fecha_nacimiento" value={nuevoCliente.fecha_nacimiento} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Idioma Materno:</label>
-              <input type="text" name="idioma_materno" value={nuevoCliente.idioma_materno} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Grupo Étnico:</label>
-              <input type="text" name="grupo_etnico" value={nuevoCliente.grupo_etnico} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Nivel Escolar:</label>
-              <input type="text" name="nivel_escolar" value={nuevoCliente.nivel_escolar} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Teléfono:</label>
-              <input type="text" name="telefono" value={nuevoCliente.telefono} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Email:</label>
-              <input type="text" name="email" value={nuevoCliente.email} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Departamento de Residencia:</label>
-              <input type="text" name="departamento_residencia" value={nuevoCliente.departamento_residencia} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Municipio de Residencia:</label>
-              <input type="text" name="municipio_residencia" value={nuevoCliente.municipio_residencia} onChange={handleChange} />
-            </div>  
-            <div>
-              <label>Estado:</label>
-              <input type="checkbox" name="estado" checked={nuevoCliente.estado} onChange={(e) => setNuevoCliente((prevState) => ({
-                ...prevState,
-                estado: e.target.checked
-              }))} />
-            </div>
+            <h1>Agregar Cliente</h1>
+            <form onSubmit={handleFormSubmit}>
+              {/* campos para crear cliente */}
+              <div>
+                <label className='subtitulo'>DPI:</label><br />
+                <input className='insertar' type="text" name="dpi" value={nuevoCliente.dpi} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Nombres:</label><br />
+                <input className='insertar' type="text" name="nombres" value={nuevoCliente.nombres} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Primer Apellido:</label><br />
+                <input className='insertar' type="text" name="primer_apellido" value={nuevoCliente.primer_apellido} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Segundo Apellido:</label><br />
+                <input className='insertar' type="text" name="segundo_apellido" value={nuevoCliente.segundo_apellido} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Género:</label><br />
+                <input className='insertar' type="text" name="genero" value={nuevoCliente.genero} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Fecha de Nacimiento:</label><br />
+                <input className='insertar' type="date" name="fecha_nacimiento" value={nuevoCliente.fecha_nacimiento} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Idioma Materno:</label><br />
+                <input className='insertar' type="text" name="idioma_materno" value={nuevoCliente.idioma_materno} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Grupo Étnico:</label><br />
+                <input className='insertar' type="text" name="grupo_etnico" value={nuevoCliente.grupo_etnico} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Nivel Escolar:</label><br />
+                <input className='insertar' type="text" name="nivel_escolar" value={nuevoCliente.nivel_escolar} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Teléfono:</label><br />
+                <input className='insertar' type="text" name="telefono" value={nuevoCliente.telefono} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Email:</label><br />
+                <input className='insertar' type="text" name="email" value={nuevoCliente.email} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Departamento de Residencia:</label><br />
+                <input className='insertar' type="text" name="departamento_residencia" value={nuevoCliente.departamento_residencia} onChange={handleChange} />
+              </div> 
+              <div>
+                <label className='subtitulo'>Municipio de Residencia:</label><br />
+                <input className='insertar' type="text" name="municipio_residencia" value={nuevoCliente.municipio_residencia} onChange={handleChange} />
+              </div>
+              <button type="submit" className='button'>Guardar Cambios</button>
+            </form>
+          </div>
+        )}
 
-            <button type="submit" className='button'>Agregar Cliente</button>
-          </form>
-        </div>
+        {activo === "editClientes" && (
+          <div className={"divClientes"}>
+            <h1>Editar Cliente (solo campos editables)</h1>
+            <form onSubmit={submitEditCliente}>
+              <div>
+                <label className='subtitulo'>Código Cliente:</label><br />
+                <input className='insertar' type="number" name="codigo_cliente" value={nuevoCliente.codigo_cliente} readOnly />
+              </div>
+
+              <div>
+                <label className='subtitulo'>DPI:</label><br />
+                <input className='insertar' type="text" name="dpi" value={nuevoCliente.dpi} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Nombres:</label><br />
+                <input className='insertar' type="text" name="nombres" value={nuevoCliente.nombres} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Primer Apellido:</label><br />
+                <input className='insertar' type="text" name="primer_apellido" value={nuevoCliente.primer_apellido} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Segundo Apellido:</label><br />
+                <input className='insertar' type="text" name="segundo_apellido" value={nuevoCliente.segundo_apellido} onChange={handleChange} />
+              </div>
+
+              <div>
+                <label className='subtitulo'>Género:</label><br />
+                <input className='insertar' type="text" name="genero" value={nuevoCliente.genero} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Fecha de Nacimiento:</label><br />
+                <input className='insertar' type="date" name="fecha_nacimiento" value={nuevoCliente.fecha_nacimiento} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Idioma Materno:</label><br />
+                <input className='insertar' type="text" name="idioma_materno" value={nuevoCliente.idioma_materno} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Grupo Étnico:</label><br />
+                <input className='insertar' type="text" name="grupo_etnico" value={nuevoCliente.grupo_etnico} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Nivel Escolar:</label><br />
+                <input className='insertar' type="text" name="nivel_escolar" value={nuevoCliente.nivel_escolar} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Teléfono:</label><br />
+                <input className='insertar' type="text" name="telefono" value={nuevoCliente.telefono} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Email:</label><br />
+                <input className='insertar' type="text" name="email" value={nuevoCliente.email} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Departamento de Residencia:</label><br />
+                <input className='insertar' type="text" name="departamento_residencia" value={nuevoCliente.departamento_residencia} onChange={handleChange} />
+              </div> 
+              <div>
+                <label className='subtitulo'>Municipio de Residencia:</label><br />
+                <input className='insertar' type="text" name="municipio_residencia" value={nuevoCliente.municipio_residencia} onChange={handleChange} />
+              </div>
+
+              <button type="submit" className='button'>Guardar Cambios</button>
+              <button type="button" className='button' onClick={() => setActivo("getClientes")}>Cancelar</button>
+            </form>
+          </div>
         )}
 
         {activo === "Libros" && (
           <div className={"divLibros"}>
-          <h1>Libros</h1>
-          <button className='button'onClick={() => setActivo("setLibros")}>Agregar</button>
-          <button className='button'onClick={() => setActivo("getLibros")}>Ver</button>
-
-        </div>
+            <h1>Libros</h1>
+            <button className='button' onClick={() => setActivo("setLibros")}>Agregar</button>
+            <button className='button' onClick={() => setActivo("getLibros")}>Ver</button>
+          </div>
         )}
-
-        
 
         {activo === "getLibros" && (
           <div className={"divLibros"}>
-          <h1>Mostrar Libros</h1>
+            <h1>Mostrar Libros</h1>
 
-          <input type="text" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
-              const searchTerm = e.target.value;
-              if (searchTerm === "" || searchTerm <= "0") {
-                // Si el término de búsqueda está vacío, obtener todos los libros
-                fetch('http://localhost:8080/api/biblioteca/libros')
-              .then(response => response.json())
-              .then(data => setLibro(data))
-              .catch(error =>{
-                console.error("No se ha podido obtener data", error);
-              });
-              } else {
-                // Filtrar los libros por el término de búsqueda
-                fetch(`http://localhost:8080/api/biblioteca/libros/${searchTerm}`)
-              .then(response => response.json())
-              .then(data => setLibro([data])) // Envolver el resultado en un array
-              .catch(error =>{
-                console.error("No se ha podido obtener data", error);
-              });
-              }
-            }} />
-            
-          {libro.map((l: Libros) => (
-            <div key={l.codigo_libro} className='datosLibros'>
-              <h2>{l.titulo}</h2>
-              <p>Autor: {l.autor}</p>
-              <p>Editorial: {l.editorial}</p>
-              <p>Fecha de Publicación: {l.fecha_publicacion}</p>
-              <p>ISBN: {l.isbn}</p>
-              <p>Género: {l.genero}</p>
-              <p>Descripción: {l.descripcion}</p>
-              <p>Disponible: {l.disponible ? "Disponible" : "No Disponible"}</p>
-            </div>
-          ))}
-        </div>
+            <input type="text" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
+                const searchTerm = e.target.value;  
+                if (searchTerm === "" || searchTerm <= "0") {
+                  fetch(`${API}/libros`)
+                .then(response => response.json())
+                .then(data => setLibro(data))
+                .catch(error =>{
+                  console.error("No se ha podido obtener data", error);
+                });
+                } else {
+                  fetch(`${API}/libros/${searchTerm}`)
+                    .then(response => response.json())
+                    .then(data => setLibro(data))
+                    .catch(error => {
+                      console.error("No se ha podido obtener data", error);
+                    });
+                }
+              }} />
+              
+            {libro.map((l: Libros) => (
+              <div key={l.codigo_libro} className='datosLibros'>
+                <h2>{l.titulo}</h2>
+                <p>Autor: {l.autor}</p>
+                <p>Editorial: {l.editorial}</p>
+                <p>Fecha de Publicación: {l.fecha_publicacion}</p>
+                <p>ISBN: {l.isbn}</p>
+                <p>Género: {l.genero}</p>
+                <p>Descripción: {l.descripcion}</p>
+                <p>Disponible: {l.disponible ? "Disponible" : "No Disponible"}</p>
+                <button className='button' onClick={() => startEditLibro(l)}>Editar</button>
+              </div>
+            ))}
+
+          </div>
         )}
 
         {activo === "setLibros" && (
           <div className={"divLibros"}>
-          <h1>Agregar Libro</h1>
-          <form onSubmit={handleFormSubmit}> 
-            <div>
-              <label>Título:</label>
-              <input type="text" name="titulo" value={nuevoLibro.titulo} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Autor:</label>
-              <input type="text" name="autor" value={nuevoLibro.autor} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Editorial:</label>
-              <input type="text" name="editorial" value={nuevoLibro.editorial} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Fecha de Publicación:</label>
-              <input type="text" name="fecha_publicacion" value={nuevoLibro.fecha_publicacion} onChange={handleChange} />
-            </div>
-            <div>
-              <label>ISBN:</label>
-              <input type="text" name="isbn" value={nuevoLibro.isbn} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Género:</label>
-              <input type="text" name="genero" value={nuevoLibro.genero} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Descripción:</label>
-              <input type="text" name="descripcion" value={nuevoLibro.descripcion} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Disponible:</label>
-              <input type="checkbox" name="disponible" checked={nuevoLibro.disponible} onChange={(e) => setNuevoLibro((prevState) => ({
-                ...prevState,
-                disponible: e.target.checked
-              }))} />
-            </div>
-            <button type="submit" className='button'>Agregar Libro</button>
-          </form>
-        </div>
+            <h1>Agregar Libro</h1>
+            <form onSubmit={handleFormSubmit}> 
+              <div>
+                <label className='subtitulo'>Título:</label><br />
+                <input className='insertar' type="text" name="titulo" value={nuevoLibro.titulo} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Autor:</label><br /> 
+                <input className='insertar' type="text" name="autor" value={nuevoLibro.autor} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Editorial:</label><br />
+                <input className='insertar' type="text" name="editorial" value={nuevoLibro.editorial} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Fecha de Publicación:</label><br />
+                <input className='insertar' type="text" name="fecha_publicacion" value={nuevoLibro.fecha_publicacion} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>ISBN:</label><br />
+                <input className='insertar' type="text" name="isbn" value={nuevoLibro.isbn} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Género:</label><br />
+                <input className='insertar' type="text" name="genero" value={nuevoLibro.genero} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Descripción:</label><br />
+                <input className='insertar' type="text" name="descripcion" value={nuevoLibro.descripcion} onChange={handleChange} required />
+              </div>
+              
+              <button type="submit" className='button'>Agregar Libro</button>
+            </form>
+          </div>
+        )}
+
+        {activo === "editLibros" && (
+          <div className={"divLibros"}>
+            <h1>Editar Libro</h1>
+            <form onSubmit={submitEditLibro}>
+              <div>
+                <label className='subtitulo'>Código Libro:</label><br />
+                <input className='insertar' type="number" name="codigo_libro" value={nuevoLibro.codigo_libro} readOnly />
+              </div>
+              <div>
+                <label className='subtitulo'>Título:</label><br />
+                <input className='insertar' type="text" name="titulo" value={nuevoLibro.titulo} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Autor:</label><br />
+                <input className='insertar' type="text" name="autor" value={nuevoLibro.autor} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Editorial:</label><br />
+                <input className='insertar' type="text" name="editorial" value={nuevoLibro.editorial} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Fecha de Publicación:</label><br />
+                <input className='insertar' type="text" name="fecha_publicacion" value={nuevoLibro.fecha_publicacion} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>ISBN:</label><br />
+                <input className='insertar' type="text" name="isbn" value={nuevoLibro.isbn} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Género:</label><br />
+                <input className='insertar' type="text" name="genero" value={nuevoLibro.genero} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Descripción:</label><br />
+                <input className='insertar' type="text" name="descripcion" value={nuevoLibro.descripcion} onChange={handleChange} />
+              </div>
+              <div>
+                <label className='subtitulo'>Disponible:</label><br />
+                <input className='insertar' type="checkbox" name="disponible" checked={nuevoLibro.disponible} onChange={handleChange as any} />
+              </div>
+
+              <button type="submit" className='button'>Guardar Cambios</button>
+              <button type="button" className='button' onClick={() => setActivo("getLibros")}>Cancelar</button>
+            </form>
+          </div>
         )}
 
         {activo === "Prestamos" && (
           <div className={"divPrestamos"}>
-          <h1>Préstamos</h1>
-          <button className='button'onClick={() => setActivo("setPrestamos")}>Agregar</button>
-          <button className='button'onClick={() => setActivo("getPrestamos")}>Ver</button>
-
-        </div>
+            <h1>Préstamos</h1>
+            <button className='button' onClick={() => setActivo("setPrestamos")}>Agregar</button>
+            <button className='button' onClick={() => setActivo("getPrestamos")}>Ver</button>
+          </div>
         )}
 
         {activo === "getPrestamos" && (
           <div className={"divPrestamos"}>
-          <h1>Mostrar Préstamos</h1>
-          <input type="number" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
-              const searchTerm = e.target.value;
-              if (searchTerm === "" || searchTerm <= "0") {
-                // Si el término de búsqueda está vacío, obtener todos los préstamos
-                fetch('http://localhost:8080/api/biblioteca/prestamos')
-              .then(response => response.json())
-              .then(data => setPrestamo(data))
-              .catch(error =>{
-                console.error("No se ha podido obtener data", error);
-              });
-              } else {
-                // Filtrar los préstamos por el término de búsqueda
-                fetch(`http://localhost:8080/api/biblioteca/prestamos/${searchTerm}`)
-              .then(response => response.json())
-              .then(data => setPrestamo([data])) // Envolver el resultado en un array
-              .catch(error =>{
-                console.error("No se ha podido obtener data", error);
-              });
-              }
-            }} />
+            <h1>Mostrar Préstamos</h1>
+            <input type="number" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
+                const searchTerm = e.target.value;
+                if (searchTerm === "" || searchTerm <= "0") {
+                  fetch(`${API}/prestamos`)
+                .then(response => response.json())
+                .then(data => setPrestamo(data))
+                .catch(error =>{
+                  console.error("No se ha podido obtener data", error);
+                });
+                } else {
+                  fetch(`${API}/prestamos/${searchTerm}`)
+                .then(response => response.json())
+                .then(data => setPrestamo([data]))
+                .catch(error =>{
+                  console.error("No se ha podido obtener data", error);
+                });
+                }
+              }} />
 
-          {prestamo.map((p: Prestamos) => (
-            <div key={p.codigoPrestamo} className='datosPrestamos'>
-              <h2>Préstamo #{p.codigoPrestamo}</h2>
-              <p>Cliente: {p.codigoCliente}</p>
-              <p>Libro: {p.codigoLibro}</p>
-              <p>Fecha de Préstamo: {p.fechaPrestamo?.toString()}</p>
-              <p>Fecha Límite: {p.fechaLimite?.toString()}</p>
-              <p>Fecha de Devolución: {p.fechaDevolucion ? p.fechaDevolucion.toString() : 'No devuelto'}</p>
-              <p>Observaciones: {p.observaciones || 'Ninguna'}</p>
-              <p>Activo: {p.activo ? "Préstamo en Curso" : "Préstamo Finalizado"}</p>
-            </div>
-          ))}
-        </div>
+            {prestamo.map((p: Prestamos) => (
+              <div key={p.codigoPrestamo} className='datosPrestamos'>
+                <h2>Préstamo #{p.codigoPrestamo}</h2>
+                <p>Cliente: {p.codigoCliente}</p>
+                <p>Libro: {p.codigoLibro}</p>
+                <p>Fecha de Préstamo: {p.fechaPrestamo?.toString()}</p>
+                <p>Fecha Límite: {p.fechaLimite?.toString()}</p>
+                <p>Fecha de Devolución: {p.fechaDevolucion ? p.fechaDevolucion.toString() : 'No devuelto'}</p>
+                <p>Observaciones: {p.observaciones || 'Ninguna'}</p>
+                <p>Activo: {p.activo ? "Préstamo en Curso" : "Préstamo Finalizado"}</p>
+                <button className='button' onClick={() => startEditPrestamo(p)} disabled={!p.activo}>Editar</button>
+              </div>
+            ))}
+          </div>
         )}
 
         {activo === "setPrestamos" && (
           <div className={"divPrestamos"}>
-          <h1>Agregar Préstamo</h1>
-          <form onSubmit={handleFormSubmit}>
-            <div>
-              <label>Código Cliente:</label>
-              <input type="number" name="codigoCliente" value={nuevoPrestamo.codigoCliente} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Código Libro:</label>
-              <input type="number" name="codigoLibro" value={nuevoPrestamo.codigoLibro} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Fecha de Préstamo:</label>
-              <input type="date" name="fechaPrestamo" value={nuevoPrestamo.fechaPrestamo} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Fecha Límite:</label>
-              <input type="date" name="fechaLimite" value={nuevoPrestamo.fechaLimite} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Fecha de Devolución:</label>
-              <input type="date" name="fechaDevolucion" value={nuevoPrestamo.fechaDevolucion ? nuevoPrestamo.fechaDevolucion : ""} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Observaciones:</label>
-              <input type="text" name="observaciones" value={nuevoPrestamo.observaciones || ""} onChange={handleChange} />
-            </div>
-            <div>
-              <label>Activo:</label>
-              <input type="checkbox" name="activo" checked={nuevoPrestamo.activo} onChange={(e) => setNuevoPrestamo((prev) => ({ ...prev, activo: e.target.checked }))} />
-            </div>
+            <h1>Agregar Préstamo</h1>
+            <form onSubmit={handleFormSubmit}>
+              <div>
+                <label className='subtitulo'>Código Cliente:</label><br />
+                <input className='insertar' type="number" name="codigoCliente" value={nuevoPrestamo.codigoCliente} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Código Libro:</label><br />
+                <input className='insertar' type="number" name="codigoLibro" value={nuevoPrestamo.codigoLibro} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Fecha de Préstamo:</label><br />
+                <input className='insertar' type="date" name="fechaPrestamo" value={nuevoPrestamo.fechaPrestamo} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className='subtitulo'>Fecha Límite:</label><br />
+                <input className='insertar' type="date" name="fechaLimite" value={nuevoPrestamo.fechaLimite} onChange={handleChange} required />
+              </div>
 
-            {formError && <p style={{ color: 'red' }}>{formError}</p>}
-            {!libroDisponibleFlag && <p style={{ color: 'red' }}>El libro seleccionado no está disponible.</p>}
+              {formError && <p style={{ color: 'red' }}>{formError}</p>}
+              {!libroDisponibleFlag && <p style={{ color: 'red' }}>El libro seleccionado no está disponible.</p>}
 
-            <button type="submit" className='button' disabled={clienteActivo || !libroDisponibleFlag}>
-              Agregar Préstamo
-            </button>
-          </form>
-        </div>
+              <button type="submit" className='button' disabled={clienteActivo || !libroDisponibleFlag}>
+                Agregar Préstamo
+              </button>
+            </form>
+          </div>
+        )}
+
+        {activo === "editPrestamos" && (
+          <div className={"divPrestamos"}>
+            <h1>Editar Préstamo (solo si estaba activo)</h1>
+            <form onSubmit={(e) => submitEditPrestamo(e, false)}>
+              <div>
+                <label className='subtitulo'>Código Préstamo:</label><br />
+                <input className='insertar' type="number" name="codigoPrestamo" value={nuevoPrestamo.codigoPrestamo} readOnly />
+              </div>
+              <div>
+                <label className='subtitulo'>Código Cliente:</label><br />
+                <input className='insertar' type="number" name="codigoCliente" value={nuevoPrestamo.codigoCliente} readOnly />
+              </div>
+              <div>
+                <label className='subtitulo'>Código Libro:</label><br />
+                <input className='insertar' type="number" name="codigoLibro" value={nuevoPrestamo.codigoLibro} readOnly />
+              </div>
+
+              <div>
+                <label className='subtitulo'>Fecha de Devolución:</label><br />
+                <input className='insertar' type="date" name="fechaDevolucion" value={nuevoPrestamo.fechaDevolucion || ''} onChange={handleChange} />
+              </div>
+
+              <div>
+                <label className='subtitulo'>Observaciones:</label><br />
+                <textarea className='insertar' name="observaciones" value={nuevoPrestamo.observaciones || ''} onChange={handleChange} />
+              </div>
+
+              <p>Nota: solo se permite editar fecha de entrega y observaciones. Para finalizar el préstamo pulse "Finalizar préstamo".</p>
+
+              <button type="submit" className='button'>Guardar Cambios</button>
+              <button type="button" className='button' onClick={() => submitEditPrestamo(null, true)}>Finalizar préstamo</button>
+              <button type="button" className='button' onClick={() => setActivo("getPrestamos")}>Cancelar</button>
+            </form>
+          </div>
         )}
       </div>
     </>

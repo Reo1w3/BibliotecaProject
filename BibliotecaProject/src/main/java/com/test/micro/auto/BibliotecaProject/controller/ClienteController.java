@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
@@ -36,6 +37,11 @@ public class ClienteController implements Serializable {
     @GetMapping("/{id}")
     public ResponseEntity<Cliente> getClientePorId(@PathVariable Long id) {
         return clienteService.obtenerClientePorId(id);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Cliente> actualizarCliente(@PathVariable Long id, @RequestBody Cliente clienteActualizado) {
+        return clienteService.actualizarCliente(id, clienteActualizado);
     }
 
     @PostMapping()

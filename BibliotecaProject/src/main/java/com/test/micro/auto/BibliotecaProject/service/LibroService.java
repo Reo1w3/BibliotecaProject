@@ -27,6 +27,20 @@ public class LibroService {
         }
     }
 
+    public ResponseEntity<Libro> actualizarLibro(Long id, Libro libroActualizado) {
+        return libroRepository.findById(id)
+                .map(libro -> {
+                    libro.setTitulo(libroActualizado.getTitulo());
+                    libro.setAutor(libroActualizado.getAutor());
+                    libro.setGenero(libroActualizado.getGenero());
+                    libro.setFecha_publicacion(libroActualizado.getFecha_publicacion());
+                    libro.setEditorial(libroActualizado.getEditorial());
+                    Libro updatedLibro = libroRepository.save(libro);
+                    return ResponseEntity.ok(updatedLibro);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     public List<Libro> guardarLibro(List<Libro> libro) {
         return libroRepository.saveAll(libro);
     }
