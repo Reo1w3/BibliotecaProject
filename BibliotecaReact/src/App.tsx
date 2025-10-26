@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import './App.css'
-
+ 
 interface Clientes{
   codigo_cliente: number
   dpi: string
@@ -45,8 +45,8 @@ interface Prestamos {
 const API = '/api/biblioteca';
 
 function App() {
-    
-    const [activo, setActivo] = useState<string>("") // controla vistas
+
+    const [ventanaActiva, setVentanaActiva] = useState<string>("") // controla vistas
     const [cliente, setCliente] = useState<Clientes[]>([])
     const [libro, setLibro] = useState<Libros[]>([])
     const [prestamo, setPrestamo] = useState<Prestamos[]>([])
@@ -174,17 +174,17 @@ function App() {
     const { name, value, type, checked } = target;
     const parsedValue: any = type === 'checkbox' ? checked : (type === 'number' ? (value === '' ? '' : Number(value)) : value);
 
-    if (activo === "setClientes" || activo === "editClientes") {
+    if (ventanaActiva === "setClientes" || ventanaActiva === "editClientes") {
       setNuevoCliente((prevState) => ({
         ...(prevState as any),
         [name]: parsedValue
       }));
-    } else if (activo === "setLibros" || activo === "editLibros") {
+    } else if (ventanaActiva === "setLibros" || ventanaActiva === "editLibros") {
       setNuevoLibro((prevState) => ({
         ...(prevState as any),
         [name]: parsedValue
       }));
-    } else if (activo === "setPrestamos" || activo === "editPrestamos") {
+    } else if (ventanaActiva === "setPrestamos" || ventanaActiva === "editPrestamos") {
       setNuevoPrestamo((prevState) => ({
         ...(prevState as any),
         [name]: parsedValue
@@ -197,7 +197,7 @@ function App() {
       const text = await response.text().catch(() => '');
       throw new Error(text || `Server responded with ${response.status}`);
     }
-    // intentar parsear JSON solo si hay body
+    
     const text = await response.text().catch(() => '');
     if (!text) return null;
     try {
@@ -215,11 +215,10 @@ function App() {
     return copy;
   };
 
-  // Crear (POST) manejador existente
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (activo === "setClientes") {
+    if (ventanaActiva === "setClientes") {
       const payload = [stripId(nuevoCliente, "codigo_cliente")];
       fetch(`${API}/clientes`, {
         method: 'POST',
@@ -247,13 +246,13 @@ function App() {
             municipio_residencia: "",
             estado: false
           });
-          setActivo("getClientes");
+          setVentanaActiva("getClientes");
         })
         .catch(error => {
           console.error("Error al agregar cliente:", error);
           alert("Error al agregar cliente: " + (error as Error).message);
         });
-    } else if (activo === "setLibros") {
+    } else if (ventanaActiva === "setLibros") {
       const payload = [stripId(nuevoLibro, "codigo_libro")];
       fetch(`${API}/libros`, {
         method: 'POST',
@@ -274,13 +273,13 @@ function App() {
             descripcion: "",
             disponible: true
           });
-          setActivo("getLibros");
+          setVentanaActiva("getLibros");
         })
         .catch(error => {
           console.error("Error al agregar libro:", error);
           alert("Error al agregar libro: " + (error as Error).message);
         });
-    } else if (activo === "setPrestamos") {
+    } else if (ventanaActiva === "setPrestamos") {
       const payloadObj = { ...nuevoPrestamo };
       if ('codigoPrestamo' in payloadObj) delete (payloadObj as any).codigoPrestamo;
 
@@ -319,7 +318,7 @@ function App() {
             observaciones: null,
             activo: true
           });
-          setActivo("getPrestamos");
+          setVentanaActiva("getPrestamos");
           setFormError(null);
         })
         .catch((error) => {
@@ -334,13 +333,13 @@ function App() {
   // Clientes (iniciar y enviar)
   const startEditCliente = (c: Clientes) => {
     setNuevoCliente({ ...c });
-    setActivo("editClientes");
+    setVentanaActiva("editClientes");
   };
 
   const submitEditCliente = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      // PUT por id (tu backend espera /{id})
+      // PUT por id   
       const res = await fetch(`${API}/clientes/${nuevoCliente.codigo_cliente}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -348,7 +347,7 @@ function App() {
       });
       await handleResponse(res);
       await fetchAll();
-      setActivo("getClientes");
+      setVentanaActiva("getClientes");
       setFormError(null);
     } catch (error: any) {
       console.error("Error al editar cliente:", error);
@@ -359,7 +358,7 @@ function App() {
   // Libros: iniciar edición y enviar
   const startEditLibro = (l: Libros) => {
     setNuevoLibro({ ...l });
-    setActivo("editLibros");
+    setVentanaActiva("editLibros");
   };
 
   const submitEditLibro = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -372,7 +371,7 @@ function App() {
       });
       await handleResponse(res);
       await fetchAll();
-      setActivo("getLibros");
+      setVentanaActiva("getLibros");
       setFormError(null);
     } catch (error: any) {
       console.error("Error al editar libro:", error);
@@ -387,7 +386,7 @@ function App() {
       return;
     }
     setNuevoPrestamo({ ...p });
-    setActivo("editPrestamos");
+    setVentanaActiva("editPrestamos");
   };
 
   // Enviar edición de préstamo; si finalizar=true, marcamos activo=false y ponemos fechaDevolucion si falta
@@ -413,7 +412,7 @@ function App() {
       // refrescar listas (clientes y libros se actualizarán según backend)
       await fetchAll();
 
-      setActivo("getPrestamos");
+      setVentanaActiva("getPrestamos");
       setFormError(null);
       setNuevoPrestamo({
         codigoPrestamo: 0,
@@ -438,28 +437,28 @@ function App() {
         <div className="div1"> 
           <h1 className='titulo'>Biblioteca</h1>
           <div className="menu">
-            <button className="buttonmenu" onClick={() => setActivo("Clientes")}>Clientes</button> <br />
-            <button className="buttonmenu" onClick={() => setActivo("Libros")}>Libros</button> <br />
-            <button className="buttonmenu" onClick={() => setActivo("Prestamos")}>Préstamos</button> <br />
+            <button className="buttonmenu" onClick={() => setVentanaActiva("Clientes")}>Clientes</button> <br />
+            <button className="buttonmenu" onClick={() => setVentanaActiva("Libros")}>Libros</button> <br />
+            <button className="buttonmenu" onClick={() => setVentanaActiva("Prestamos")}>Préstamos</button> <br />
           </div>
         </div>
 
-        {activo === "" && (
+        {ventanaActiva === "" && (
           <div className="divDatos">
             <h1>Bienvenido a la Biblioteca</h1>
             <p>Seleccione una opción del menú para comenzar.</p>
           </div>
         )}
 
-        {activo === "Clientes" && (
+        {ventanaActiva === "Clientes" && (
           <div className={"divClientes"}>
             <h1>Clientes</h1>
-            <button className='button' onClick={() => setActivo("setClientes")}>Agregar</button>
-            <button className='button' onClick={() => setActivo("getClientes")}>Ver</button>
+            <button className='button' onClick={() => setVentanaActiva("setClientes")}>Agregar</button>
+            <button className='button' onClick={() => setVentanaActiva("getClientes")}>Ver</button>
           </div>
         )}
 
-        {activo === "getClientes" &&  (
+        {ventanaActiva === "getClientes" &&  (
           <div className={"divClientes"}>
             <h1>Mostrar Clientes</h1>
             <input type="number" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
@@ -499,7 +498,7 @@ function App() {
           </div>
         )}
 
-        {activo === "setClientes" && (
+        {ventanaActiva === "setClientes" && (
           <div className={"divClientes"}>
             <h1>Agregar Cliente</h1>
             <form onSubmit={handleFormSubmit}>
@@ -561,7 +560,7 @@ function App() {
           </div>
         )}
 
-        {activo === "editClientes" && (
+        {ventanaActiva === "editClientes" && (
           <div className={"divClientes"}>
             <h1>Editar Cliente (solo campos editables)</h1>
             <form onSubmit={submitEditCliente}>
@@ -625,20 +624,20 @@ function App() {
               </div>
 
               <button type="submit" className='button'>Guardar Cambios</button>
-              <button type="button" className='button' onClick={() => setActivo("getClientes")}>Cancelar</button>
+              <button type="button" className='button' onClick={() => setVentanaActiva("getClientes")}>Cancelar</button>
             </form>
           </div>
         )}
 
-        {activo === "Libros" && (
+        {ventanaActiva === "Libros" && (
           <div className={"divLibros"}>
             <h1>Libros</h1>
-            <button className='button' onClick={() => setActivo("setLibros")}>Agregar</button>
-            <button className='button' onClick={() => setActivo("getLibros")}>Ver</button>
+            <button className='button' onClick={() => setVentanaActiva("setLibros")}>Agregar</button>
+            <button className='button' onClick={() => setVentanaActiva("getLibros")}>Ver</button>
           </div>
         )}
 
-        {activo === "getLibros" && (
+        {ventanaActiva === "getLibros" && (
           <div className={"divLibros"}>
             <h1>Mostrar Libros</h1>
 
@@ -678,7 +677,7 @@ function App() {
           </div>
         )}
 
-        {activo === "setLibros" && (
+        {ventanaActiva === "setLibros" && (
           <div className={"divLibros"}>
             <h1>Agregar Libro</h1>
             <form onSubmit={handleFormSubmit}> 
@@ -716,7 +715,7 @@ function App() {
           </div>
         )}
 
-        {activo === "editLibros" && (
+        {ventanaActiva === "editLibros" && (
           <div className={"divLibros"}>
             <h1>Editar Libro</h1>
             <form onSubmit={submitEditLibro}>
@@ -758,20 +757,20 @@ function App() {
               </div>
 
               <button type="submit" className='button'>Guardar Cambios</button>
-              <button type="button" className='button' onClick={() => setActivo("getLibros")}>Cancelar</button>
+              <button type="button" className='button' onClick={() => setVentanaActiva("getLibros")}>Cancelar</button>
             </form>
           </div>
         )}
 
-        {activo === "Prestamos" && (
+        {ventanaActiva === "Prestamos" && (
           <div className={"divPrestamos"}>
             <h1>Préstamos</h1>
-            <button className='button' onClick={() => setActivo("setPrestamos")}>Agregar</button>
-            <button className='button' onClick={() => setActivo("getPrestamos")}>Ver</button>
+            <button className='button' onClick={() => setVentanaActiva("setPrestamos")}>Agregar</button>
+            <button className='button' onClick={() => setVentanaActiva("getPrestamos")}>Ver</button>
           </div>
         )}
 
-        {activo === "getPrestamos" && (
+        {ventanaActiva === "getPrestamos" && (
           <div className={"divPrestamos"}>
             <h1>Mostrar Préstamos</h1>
             <input type="number" placeholder="Buscar por Id" className='inputBuscar' onChange={(e) => {
@@ -809,7 +808,7 @@ function App() {
           </div>
         )}
 
-        {activo === "setPrestamos" && (
+        {ventanaActiva === "setPrestamos" && (
           <div className={"divPrestamos"}>
             <h1>Agregar Préstamo</h1>
             <form onSubmit={handleFormSubmit}>
@@ -840,7 +839,7 @@ function App() {
           </div>
         )}
 
-        {activo === "editPrestamos" && (
+        {ventanaActiva === "editPrestamos" && (
           <div className={"divPrestamos"}>
             <h1>Editar Préstamo (solo si estaba activo)</h1>
             <form onSubmit={(e) => submitEditPrestamo(e, false)}>
@@ -871,7 +870,7 @@ function App() {
 
               <button type="submit" className='button'>Guardar Cambios</button>
               <button type="button" className='button' onClick={() => submitEditPrestamo(null, true)}>Finalizar préstamo</button>
-              <button type="button" className='button' onClick={() => setActivo("getPrestamos")}>Cancelar</button>
+              <button type="button" className='button' onClick={() => setVentanaActiva("getPrestamos")}>Cancelar</button>
             </form>
           </div>
         )}
